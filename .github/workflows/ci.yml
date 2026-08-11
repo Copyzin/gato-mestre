@@ -23,7 +23,10 @@ jobs:
       - name: Instala shared (resolução de tipos do zod)
         working-directory: shared
         run: npm ci
-      - run: npm ci
+      # npm install (não npm ci): o package-lock gerado no Windows marca
+      # binários opcionais de outras plataformas de forma incompatível com o
+      # npm ci no Linux (bug npm/cli#4828); o install repara a resolução.
+      - run: npm install --no-audit --no-fund
       - run: npm run typecheck
       - run: npm test
 
