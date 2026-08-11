@@ -168,3 +168,31 @@ Endpoints da API:
 | `POST /admin/matches` · `PATCH /admin/matches/:id` | CRUD de jogos |
 | `POST /admin/banners` · `PATCH/DELETE /admin/banners/:id` | CRUD de banners |
 
+
+## 9. Testes
+
+Os testes do backend são de **integração**: exercitam a API pela interface HTTP
+contra um Postgres real em memória ([PGlite](https://pglite.dev)), com as
+migrations aplicadas — sem mocks de colaboradores internos. Não precisam de
+Neon, Docker nem credenciais.
+
+```bash
+cd backend
+npm test            # roda a suíte uma vez (Vitest)
+npm run test:watch  # modo watch durante o desenvolvimento
+npm run typecheck   # tsc --noEmit
+```
+
+Regra do projeto (ver `AGENTS.md`): **toda funcionalidade nova chega com o
+teste correspondente**, em TDD — primeiro o teste do comportamento (red),
+depois a implementação mínima (green), um comportamento por vez.
+
+## 10. CI/CD (GitHub Actions)
+
+- `.github/workflows/ci.yml` — roda em todo push/PR: typecheck + testes do
+  backend e build do frontend.
+- `.github/workflows/deploy.yml` — deploy manual do backend na Cloudflare
+  (gatilho *workflow_dispatch* na aba Actions). Pré-requisitos: secrets
+  `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID` no repositório. Os secrets
+  de runtime (`DATABASE_URL`, `JWT_SECRET`, chaves das APIs esportivas) ficam
+  no Worker via `npx wrangler secret put`, não no GitHub.

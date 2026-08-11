@@ -61,10 +61,16 @@ Estas práticas vêm das skills de engenharia do Matt Pocock (`tdd`, `improve-co
 ```bash
 cd backend
 npm run dev        # wrangler dev → http://localhost:8787
+npm test           # suíte de integração (Vitest + PGlite, sem Neon/Docker)
+npm run typecheck  # tsc --noEmit
 npm run generate   # gera migration a partir de src/db/schema.ts
 npm run migrate    # aplica migrations no Neon
 npm run seed       # dados mockados (idempotente) + primeiro admin
 ```
+
+- **Toda funcionalidade nova chega com teste**, escrito antes (red → green).
+  Os testes rodam no CI (`.github/workflows/ci.yml`) em todo push/PR, junto com
+  o typecheck do backend e o build do frontend. PR com CI vermelho não avança.
 
 - Health check: `GET /` → `{ "database": "connected" }`.
 - **Nunca** ative `nodejs_compat` no `wrangler.toml` do backend — quebra o driver do Neon

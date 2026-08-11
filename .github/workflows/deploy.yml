@@ -1,0 +1,38 @@
+name: Deploy backend (Cloudflare Workers)
+
+# Deploy manual por enquanto (decisão do time: desenvolver local, deploy no fim).
+# Para automatizar no futuro, adicionar um gatilho `on: push: branches: [main]`.
+#
+# Pré-requisitos (secrets do repositório — Settings → Secrets and variables → Actions):
+#   CLOUDFLARE_API_TOKEN  — token com permissão de edição de Workers
+#   CLOUDFLARE_ACCOUNT_ID — ID da conta Cloudflare
+# Os secrets de runtime (DATABASE_URL, JWT_SECRET, chaves das APIs esportivas)
+# NÃO ficam no GitHub: são configurados uma vez no Worker com
+# `npx wrangler secret put <NOME>` e persistem entre deploys.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Testar e deployar
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
