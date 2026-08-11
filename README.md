@@ -28,7 +28,8 @@ gato-mestre/
 ## 1. Instalar dependências
 
 ```bash
-cd backend && npm install
+cd shared && npm install    # necessário para a resolução de tipos do zod
+cd ../backend && npm install
 cd ../frontend && npm install
 ```
 
