@@ -160,6 +160,16 @@ export const adminRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }
       .where(eq(tips.id, Number(c.req.param("id"))))
       .returning();
     if (!updated) return c.json({ error: "Dica não encontrada." }, 404);
+
+    // Resultado definido (green/red/void) ⇒ o jogo terminou: marca o match como
+    // "finished" para a dica aparecer na tela pública de Resultados.
+    if (parsed.data.result && parsed.data.result !== "pending") {
+      await db
+        .update(matches)
+        .set({ status: "finished" })
+        .where(eq(matches.id, updated.matchId));
+    }
+
     return c.json(updated);
   })
 

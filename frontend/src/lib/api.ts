@@ -16,5 +16,6 @@ export const api = {
   baseUrl: API_URL,
   getSports: () => getJson<Sport[]>("/sports"),
   getTodayTips: () => getJson<TipWithMatch[]>("/tips/today"),
+  getResults: () => getJson<TipWithMatch[]>("/tips/results"),
   getBanners: () => getJson<Banner[]>("/banners"),
 };

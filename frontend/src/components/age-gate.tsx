@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Cat, ShieldAlert } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 const STORAGE_KEY = "gm-age-verified-at";
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -12,6 +10,7 @@ const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
  * Age gate 18+ — overlay client-side (o HTML da página continua servindo o
  * conteúdo para crawlers). Persiste a confirmação por 30 dias.
  * Só aparece nas páginas públicas — nunca no /admin.
+ * Visual: wireframe Figma Make (neo-brutalismo, sombra dura amarela).
  */
 export function AgeGate() {
   const pathname = usePathname();
@@ -64,28 +63,41 @@ export function AgeGate() {
       aria-modal="true"
       aria-labelledby="age-gate-title"
       onKeyDown={trapFocus}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/95 p-4 shadow-2xl"
+      className="fixed inset-0 z-50 grid place-items-center bg-ink/70 p-5"
     >
-      <div className="w-full max-w-sm rounded-lg border border-zinc-800 bg-zinc-900 p-8 text-center">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-zinc-800">
-          <Cat className="h-6 w-6 text-green-500" aria-hidden />
-        </div>
-        <h2 id="age-gate-title" className="text-lg font-semibold text-zinc-50">
+      <div className="w-full max-w-md border-2 border-ink bg-papel p-6 shadow-hard-amarelo">
+        <span className="grid h-11 w-11 place-items-center rounded-full border-2 border-ink bg-amarelo font-mono text-sm font-black">
+          18+
+        </span>
+        <p className="mt-5 font-mono text-[10px] font-black uppercase tracking-[0.15em]">
+          Aviso importante
+        </p>
+        <h2
+          id="age-gate-title"
+          className="mt-2 text-3xl font-black tracking-[-0.06em]"
+        >
           Você tem mais de 18 anos?
         </h2>
-        <p className="mt-2 flex items-start justify-center gap-1.5 text-sm text-zinc-400">
-          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" aria-hidden />
-          Apostas envolvem risco. Aposte com responsabilidade.
+        <p className="mt-3 text-sm leading-6">
+          O Gato Mestre oferece conteúdo editorial sobre apostas esportivas.
+          Aposte com responsabilidade.
         </p>
         <div className="mt-6 grid grid-cols-2 gap-3">
-          <Button variant="outline" onClick={leave}>
+          <button
+            onClick={confirm}
+            autoFocus
+            className="border-2 border-ink bg-amarelo py-3 font-mono text-[11px] font-black uppercase"
+          >
+            Sim, continuar
+          </button>
+          <button
+            onClick={leave}
+            className="border-2 border-ink bg-white py-3 font-mono text-[11px] font-black uppercase"
+          >
             Não
-          </Button>
-          <Button onClick={confirm} autoFocus>
-            Sim, tenho 18+
-          </Button>
+          </button>
         </div>
-        <p className="mt-4 text-xs text-zinc-500">
+        <p className="mt-4 font-mono text-[9px] uppercase text-cinza-1">
           Conteúdo destinado a maiores de 18 anos, conforme a legislação
           brasileira.
         </p>

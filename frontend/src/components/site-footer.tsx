@@ -1,22 +1,14 @@
-import { ShieldAlert } from "lucide-react";
-
+/**
+ * Footer público — faixa tinta com aviso de jogo responsável (wireframe).
+ */
 export function SiteFooter() {
   return (
-    <footer className="mt-12 border-t border-zinc-800">
-      <div className="mx-auto flex max-w-7xl flex-col items-center gap-3 px-4 py-8 text-center">
-        <p className="flex items-center gap-2 text-sm font-semibold text-amber-500">
-          <ShieldAlert aria-hidden className="h-4 w-4" />
-          Proibido para menores de 18 anos
-        </p>
-        <p className="max-w-lg text-xs leading-relaxed text-zinc-500">
-          Apostas envolvem risco financeiro. Jogue com responsabilidade. O Gato
-          Mestre oferece conteúdo informativo e não garante resultados. Se o
-          jogo deixou de ser diversão, procure ajuda.
-        </p>
-        <p className="text-xs text-zinc-500">
-          © {new Date().getFullYear()} Gato Mestre
-        </p>
-      </div>
+    <footer className="relative z-10 border-t-2 border-ink bg-ink px-5 py-3 text-center font-mono text-[10px] text-papel">
+      <p>18+ · APOSTAS ENVOLVEM RISCO. APOSTE COM RESPONSABILIDADE.</p>
+      <p className="mt-1 text-[9px] text-papel/60">
+        © {new Date().getFullYear()} Gato Mestre · Conteúdo editorial, sem
+        garantia de resultados.
+      </p>
     </footer>
   );
 }

@@ -1,11 +1,18 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { DM_Mono, IBM_Plex_Sans } from "next/font/google";
 import { AgeGate } from "@/components/age-gate";
 import "./globals.css";
 
-const inter = Inter({
+const plexSans = IBM_Plex_Sans({
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-sans",
+});
+
+const dmMono = DM_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-mono",
 });
 
 export const metadata: Metadata = {
@@ -18,8 +25,8 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="pt-BR" className={`dark ${inter.variable}`}>
-      <body className="min-h-screen bg-zinc-950 font-sans text-zinc-50 antialiased">
+    <html lang="pt-BR" className={`${plexSans.variable} ${dmMono.variable}`}>
+      <body className="min-h-screen bg-fundo font-sans text-ink antialiased">
         {children}
         <AgeGate />
       </body>

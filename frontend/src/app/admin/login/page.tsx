@@ -45,7 +45,7 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-4">
+    <main className="flex min-h-screen items-center justify-center bg-zinc-950 p-4 text-zinc-50">
       <div className="w-full max-w-sm rounded-lg border border-zinc-800 bg-zinc-900 p-8">
         <div className="mb-6 flex items-center gap-2">
           <Cat aria-hidden className="h-5 w-5 text-green-500" />

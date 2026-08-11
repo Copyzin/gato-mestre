@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
-import { and, eq, gte, lt } from "drizzle-orm";
+import { and, desc, eq, gte, lt } from "drizzle-orm";
 import { z } from "zod";
 import { createDb } from "./db";
 import { banners, matches, sports, tips } from "./db/schema";
@@ -98,6 +98,49 @@ app.get("/tips/today", async (c) => {
     .orderBy(matches.startTime);
 
   // Normaliza para os tipos compartilhados (numeric → number, Date → ISO string)
+  const data = rows.map(({ tip, match, sport }) => ({
+    id: tip.id,
+    matchId: tip.matchId,
+    title: tip.title,
+    description: tip.description,
+    odds: Number(tip.odds),
+    confidence: tip.confidence,
+    result: tip.result,
+    createdAt: tip.createdAt.toISOString(),
+    match: {
+      id: match.id,
+      sportId: match.sportId,
+      league: match.league,
+      homeTeam: match.homeTeam,
+      awayTeam: match.awayTeam,
+      startTime: match.startTime.toISOString(),
+      status: match.status,
+    },
+    sport: {
+      id: sport.id,
+      name: sport.name,
+      slug: sport.slug,
+      icon: sport.icon,
+    },
+  }));
+
+  return c.json(data);
+});
+
+// Resultados: dicas de jogos encerrados, mais recentes primeiro (tela /resultados)
+app.get("/tips/results", async (c) => {
+  const db = c.get("db");
+
+  const rows = await db
+    .select({ tip: tips, match: matches, sport: sports })
+    .from(tips)
+    .innerJoin(matches, eq(tips.matchId, matches.id))
+    .innerJoin(sports, eq(matches.sportId, sports.id))
+    .where(eq(matches.status, "finished"))
+    .orderBy(desc(matches.startTime))
+    .limit(100);
+
+  // Mesmo shape de GET /tips/today (TipWithMatch[])
   const data = rows.map(({ tip, match, sport }) => ({
     id: tip.id,
     matchId: tip.matchId,

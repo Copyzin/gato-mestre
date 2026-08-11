@@ -108,14 +108,14 @@ export default function AdminPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center">
+      <main className="flex min-h-screen items-center justify-center bg-zinc-950">
         <Loader2 aria-hidden className="h-6 w-6 animate-spin text-zinc-500" />
       </main>
     );
   }
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-6">
+    <main className="mx-auto min-h-screen max-w-4xl bg-zinc-950 px-4 py-6 text-zinc-50">
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Cat aria-hidden className="h-5 w-5 text-green-500" />

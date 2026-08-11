@@ -96,6 +96,7 @@ Rotas disponíveis:
 | `GET /`        | Health check — testa a conexão com o Neon          |
 | `GET /sports`  | Lista os esportes cadastrados                      |
 | `GET /tips/today` | Dicas cujos jogos começam hoje (UTC), com jogo e esporte |
+| `GET /tips/results` | Dicas de jogos encerrados (`finished`), mais recentes primeiro — alimenta a tela `/resultados` |
 | `GET /banners` | Banners ativos                                     |
 
 ## 5. Rodar o frontend local
@@ -153,6 +154,9 @@ entre com o `ADMIN_EMAIL`/`ADMIN_PASSWORD` do seed.
 - Rotas `/admin/*` da API exigem `Authorization: Bearer <token>`.
 - No painel: publicar dica, cadastrar jogo, marcar resultado (Green/Red/Void)
   e excluir dica (com confirmação).
+- Ao marcar Green/Red/Void, o jogo é automaticamente encerrado
+  (`status = finished`) e a dica passa a aparecer na tela pública `/resultados`
+  (via `GET /tips/results`).
 
 Endpoints da API:
 

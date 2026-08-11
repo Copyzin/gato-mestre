@@ -1,33 +1,40 @@
 import Link from "next/link";
-import { Cat } from "lucide-react";
 
+/**
+ * Header público — 72px, papel, borda dura (wireframe Figma Make).
+ * Server component: nav por âncoras da home + link para a área restrita.
+ */
 export function SiteHeader() {
-  const today = new Date().toLocaleDateString("pt-BR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    timeZone: "America/Sao_Paulo",
-  });
-
   return (
-    <header className="sticky top-0 z-40 border-b border-zinc-800 bg-zinc-950">
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
+    <header className="relative z-10 flex h-[72px] items-center justify-between border-b-2 border-ink bg-papel px-5 lg:px-8">
+      <div className="flex items-center gap-8">
         <Link
           href="/"
-          className="flex items-center gap-2 text-sm font-bold tracking-tight"
+          className="flex items-center gap-3 font-mono text-sm font-black uppercase"
         >
-          <Cat aria-hidden className="h-5 w-5 text-green-500" />
-          Gato Mestre
-        </Link>
-        <div className="flex items-center gap-4">
-          <time className="hidden text-xs capitalize text-zinc-500 sm:block">
-            {today}
-          </time>
-          <span className="rounded border border-amber-500/30 px-1.5 py-0.5 text-[10px] font-bold text-amber-500">
-            +18
+          <span
+            aria-hidden
+            className="grid h-9 w-9 place-items-center rounded-full border-2 border-ink bg-amarelo text-xl"
+          >
+            🐱
           </span>
-        </div>
+          <span className="text-xl tracking-[-0.12em]">gato mestre</span>
+        </Link>
+        <span className="hidden border-l-2 border-ink pl-7 font-mono text-[10px] uppercase tracking-[0.16em] text-cinza-2 md:block">
+          plataforma de análise esportiva
+        </span>
       </div>
+      <nav className="hidden items-center gap-6 text-sm font-bold lg:flex">
+        <Link href="/#dicas">Dicas</Link>
+        <Link href="/#como-funciona">Como funciona</Link>
+        <Link href="/#quem-somos">Quem somos</Link>
+      </nav>
+      <Link
+        href="/admin/login"
+        className="border-2 border-ink bg-amarelo px-4 py-2 font-mono text-[11px] font-black uppercase tracking-wide"
+      >
+        Entrar
+      </Link>
     </header>
   );
 }
