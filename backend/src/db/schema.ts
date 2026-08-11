@@ -33,6 +33,25 @@ export const bannerPositionEnum = pgEnum("banner_position", [
   "footer",
 ]);
 
+// Ciclo de vida da dica: sugestões automáticas nascem como rascunho (draft)
+// e só vão ao ar quando o admin publica.
+export const tipStatusEnum = pgEnum("tip_status", ["draft", "published"]);
+
+// Mercados estruturados — permitem a apuração automática pelo placar.
+// Dicas manuais podem não ter mercado (apuração manual nesse caso).
+export const tipMarketEnum = pgEnum("tip_market", [
+  "home_win",
+  "draw",
+  "away_win",
+  "over_25",
+  "under_25",
+  "btts_yes",
+  "btts_no",
+]);
+
+// Quem apurou o resultado: o sistema (pelo placar da API) ou o admin (override).
+export const settledByEnum = pgEnum("settled_by", ["auto", "admin"]);
+
 // ─── Tabelas ─────────────────────────────────────────────────────────────────
 
 export const sports = pgTable("sports", {
@@ -52,6 +71,10 @@ export const matches = pgTable("matches", {
   awayTeam: text("away_team").notNull(),
   startTime: timestamp("start_time", { withTimezone: true }).notNull(),
   status: matchStatusEnum("status").notNull().default("scheduled"),
+  // ID do fixture na fonte externa (ex.: API-Sports) — garante ingestão idempotente
+  externalId: text("external_id").unique(),
+  homeScore: integer("home_score"),
+  awayScore: integer("away_score"),
 });
 
 export const tips = pgTable("tips", {
@@ -61,9 +84,15 @@ export const tips = pgTable("tips", {
     .references(() => matches.id),
   title: text("title").notNull(),
   description: text("description"),
-  odds: numeric("odds", { precision: 5, scale: 2 }).notNull(),
+  // Odd nullable: sugestões (draft) podem nascer sem odd — obrigatória na publicação
+  odds: numeric("odds", { precision: 5, scale: 2 }),
   confidence: confidenceEnum("confidence").notNull().default("medium"),
   result: tipResultEnum("result").notNull().default("pending"),
+  status: tipStatusEnum("status").notNull().default("published"),
+  market: tipMarketEnum("market"),
+  // Probabilidade % calculada (ex.: /predictions da API-Sports), quando disponível
+  probability: integer("probability"),
+  settledBy: settledByEnum("settled_by"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

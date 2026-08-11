@@ -7,3 +7,9 @@ compatibility_date = "2024-12-18"
 
 [vars]
 ENVIRONMENT = "development"
+
+# Ingestão automática (ver src/ingestion/index.ts):
+# - 7 9,17 * * *  → 6h07 e 14h07 em Brasília: fixtures + sugestões (predictions)
+# - 23 */2 * * *  → a cada 2h: apuração de resultados (placar → green/red)
+[triggers]
+crons = ["7 9,17 * * *", "23 */2 * * *"]

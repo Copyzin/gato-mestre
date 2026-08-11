@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Cat, Loader2, LogOut, Plus, Trash2 } from "lucide-react";
+import { Cat, Loader2, LogOut, Plus, RefreshCw, Trash2 } from "lucide-react";
 import type { MatchWithSport, Sport, TipWithMatch } from "@shared/index";
+import type { ApiError } from "@shared/index";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +13,13 @@ import { Select } from "@/components/ui/select";
 import { TOKEN_KEY } from "@/lib/auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787";
+
+const RESULT_LABEL: Record<TipWithMatch["result"], string> = {
+  won: "Green",
+  lost: "Red",
+  void: "Void",
+  pending: "Pendente",
+};
 
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString("pt-BR", {
@@ -27,9 +35,11 @@ export default function AdminPage() {
   const router = useRouter();
   const [token, setToken] = useState<string | null>(null);
   const [tips, setTips] = useState<TipWithMatch[]>([]);
+  const [suggestions, setSuggestions] = useState<TipWithMatch[]>([]);
   const [matches, setMatches] = useState<MatchWithSport[]>([]);
   const [sports, setSports] = useState<Sport[]>([]);
   const [loading, setLoading] = useState(true);
+  const [ingesting, setIngesting] = useState(false);
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
 
   const authHeaders = useCallback(
@@ -42,19 +52,22 @@ export default function AdminPage() {
 
   const load = useCallback(
     async (t: string) => {
-      const [tipsRes, matchesRes, sportsRes] = await Promise.all([
-        fetch(`${API_URL}/admin/tips`, { headers: { Authorization: `Bearer ${t}` } }),
-        fetch(`${API_URL}/admin/matches`, { headers: { Authorization: `Bearer ${t}` } }),
+      const headers = { Authorization: `Bearer ${t}` };
+      const [tipsRes, suggestionsRes, matchesRes, sportsRes] = await Promise.all([
+        fetch(`${API_URL}/admin/tips`, { headers }),
+        fetch(`${API_URL}/admin/tips?status=draft`, { headers }),
+        fetch(`${API_URL}/admin/matches`, { headers }),
         fetch(`${API_URL}/sports`),
       ]);
 
-      if (tipsRes.status === 401 || matchesRes.status === 401) {
+      if (tipsRes.status === 401 || suggestionsRes.status === 401 || matchesRes.status === 401) {
         localStorage.removeItem(TOKEN_KEY);
         router.replace("/admin/login");
         return;
       }
 
       setTips(await tipsRes.json());
+      setSuggestions(await suggestionsRes.json());
       setMatches(await matchesRes.json());
       setSports(await sportsRes.json());
       setLoading(false);
@@ -80,16 +93,64 @@ export default function AdminPage() {
     router.replace("/admin/login");
   }
 
-  async function setResult(tipId: number, result: "won" | "lost" | "void") {
-    const res = await fetch(`${API_URL}/admin/tips/${tipId}`, {
+  async function setResult(tip: TipWithMatch, result: "won" | "lost" | "void") {
+    if (tip.result !== "pending") {
+      const score =
+        tip.match.homeScore !== null && tip.match.awayScore !== null
+          ? `${tip.match.homeScore} x ${tip.match.awayScore}`
+          : "x";
+      const current = `${RESULT_LABEL[tip.result]}${tip.settledBy ? ` (${tip.settledBy})` : ""}`;
+      const ok = window.confirm(
+        `Confirmar correção manual? ${tip.match.homeTeam} ${score} ${tip.match.awayTeam} — resultado atual: ${current}`
+      );
+      if (!ok) return;
+    }
+    const res = await fetch(`${API_URL}/admin/tips/${tip.id}`, {
       method: "PATCH",
       headers: authHeaders(),
       body: JSON.stringify({ result }),
     });
     if (res.ok) {
-      setTips((prev) => prev.map((t) => (t.id === tipId ? { ...t, result } : t)));
+      setTips((prev) =>
+        prev.map((t) => (t.id === tip.id ? { ...t, result, settledBy: "admin" } : t))
+      );
     } else {
       setNotice({ kind: "error", text: "Não foi possível atualizar o resultado." });
+    }
+  }
+
+  async function runIngest() {
+    if (!token) return;
+    setIngesting(true);
+    setNotice(null);
+    try {
+      const res = await fetch(`${API_URL}/admin/ingest`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ task: "all" }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as Partial<ApiError>;
+        setNotice({ kind: "error", text: data.error ?? "Falha ao coletar dados." });
+        return;
+      }
+      const data = (await res.json()) as {
+        summary?: {
+          fixtures?: { upserted?: number };
+          suggestions?: { suggested?: number };
+          settle?: { settled?: number };
+        };
+      };
+      const s = data.summary ?? {};
+      setNotice({
+        kind: "ok",
+        text: `Coleta concluída: ${s.fixtures?.upserted ?? 0} jogos, ${s.suggestions?.suggested ?? 0} sugestões, ${s.settle?.settled ?? 0} apuradas.`,
+      });
+      await load(token);
+    } catch {
+      setNotice({ kind: "error", text: "Falha ao coletar dados. A API está no ar?" });
+    } finally {
+      setIngesting(false);
     }
   }
 
@@ -122,6 +183,14 @@ export default function AdminPage() {
           <span className="text-sm font-bold">Painel Admin</span>
         </div>
         <div className="flex items-center gap-2">
+          <Button size="sm" onClick={runIngest} disabled={ingesting}>
+            {ingesting ? (
+              <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RefreshCw aria-hidden className="h-3.5 w-3.5" />
+            )}
+            {ingesting ? "Coletando jogos e sugestões…" : "Atualizar dados"}
+          </Button>
           <Link href="/" className="text-xs text-zinc-500 hover:text-zinc-50">
             Ver site
           </Link>
@@ -161,10 +230,30 @@ export default function AdminPage() {
       </div>
 
       <h2 className="mb-3 mt-8 text-sm font-semibold uppercase tracking-wide text-zinc-400">
-        Dicas ({tips.length})
+        Sugestões ({suggestions.length})
       </h2>
       <div className="flex flex-col gap-2">
-        {tips.map((tip) => (
+        {suggestions.map((tip) => (
+          <SuggestionItem
+            key={tip.id}
+            tip={tip}
+            headers={authHeaders()}
+            onDone={() => token && load(token)}
+            onError={(text) => setNotice({ kind: "error", text })}
+          />
+        ))}
+        {suggestions.length === 0 && (
+          <p className="rounded-lg border border-zinc-800 bg-zinc-900 p-6 text-center text-sm text-zinc-500">
+            Sem sugestões novas — rode Atualizar dados.
+          </p>
+        )}
+      </div>
+
+      <h2 className="mb-3 mt-8 text-sm font-semibold uppercase tracking-wide text-zinc-400">
+        Dicas publicadas ({tips.filter((t) => t.status === "published").length})
+      </h2>
+      <div className="flex flex-col gap-2">
+        {tips.filter((t) => t.status === "published").map((tip) => (
           <div
             key={tip.id}
             className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-zinc-800 bg-zinc-900 p-3 text-sm"
@@ -176,21 +265,30 @@ export default function AdminPage() {
               </p>
               <p className="truncate text-xs text-zinc-500">
                 {tip.title} · odd{" "}
-                <span className="tabular-nums">{tip.odds.toFixed(2)}</span> ·{" "}
-                {formatDateTime(tip.match.startTime)}
+                <span className="tabular-nums">
+                  {tip.odds !== null ? tip.odds.toFixed(2) : "—"}
+                </span>{" "}
+                · {formatDateTime(tip.match.startTime)}
               </p>
             </div>
 
-            <ResultBadge result={tip.result} />
+            <span className="flex items-center gap-1">
+              <ResultBadge result={tip.result} />
+              {tip.settledBy && (
+                <span className="rounded bg-zinc-500/10 px-1.5 py-0.5 text-[10px] font-bold uppercase text-zinc-400">
+                  {tip.settledBy === "auto" ? "Auto" : "Admin"}
+                </span>
+              )}
+            </span>
 
             <div className="flex items-center gap-1">
-              <Button size="sm" variant="outline" onClick={() => setResult(tip.id, "won")} className="text-green-500">
+              <Button size="sm" variant="outline" onClick={() => setResult(tip, "won")} className="text-green-500">
                 Green
               </Button>
-              <Button size="sm" variant="outline" onClick={() => setResult(tip.id, "lost")} className="text-red-500">
+              <Button size="sm" variant="outline" onClick={() => setResult(tip, "lost")} className="text-red-500">
                 Red
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => setResult(tip.id, "void")}>
+              <Button size="sm" variant="ghost" onClick={() => setResult(tip, "void")}>
                 Void
               </Button>
               <Button
@@ -205,13 +303,118 @@ export default function AdminPage() {
             </div>
           </div>
         ))}
-        {tips.length === 0 && (
+        {tips.filter((t) => t.status === "published").length === 0 && (
           <p className="rounded-lg border border-zinc-800 bg-zinc-900 p-6 text-center text-sm text-zinc-500">
-            Nenhuma dica cadastrada.
+            Nenhuma dica publicada.
           </p>
         )}
       </div>
     </main>
+  );
+}
+
+type SuggestionProps = {
+  tip: TipWithMatch;
+  headers: Record<string, string>;
+  onDone: () => void;
+  onError: (text: string) => void;
+};
+
+function SuggestionItem({ tip, headers, onDone, onError }: SuggestionProps) {
+  const [odds, setOdds] = useState(tip.odds !== null ? tip.odds.toFixed(2) : "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function publish() {
+    setBusy(true);
+    setError(null);
+    const body: { status: "published"; odds?: number } = { status: "published" };
+    if (odds.trim() !== "") body.odds = Number(odds);
+    const res = await fetch(`${API_URL}/admin/tips/${tip.id}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify(body),
+    });
+    setBusy(false);
+    if (res.ok) {
+      onDone();
+    } else {
+      const data = (await res.json().catch(() => ({}))) as Partial<ApiError>;
+      setError(data.error ?? "Não foi possível publicar a sugestão.");
+    }
+  }
+
+  async function discard() {
+    if (!window.confirm("Descartar esta sugestão? Ela será excluída.")) return;
+    setBusy(true);
+    const res = await fetch(`${API_URL}/admin/tips/${tip.id}`, {
+      method: "DELETE",
+      headers,
+    });
+    setBusy(false);
+    if (res.ok) {
+      onDone();
+    } else {
+      onError("Não foi possível descartar a sugestão.");
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-dashed border-zinc-700 bg-zinc-900 p-3 text-sm">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <span aria-hidden>{tip.sport.icon}</span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium">
+            {tip.match.homeTeam} x {tip.match.awayTeam}
+          </p>
+          <p className="truncate text-xs text-zinc-500">
+            {tip.sport.name} · {tip.match.league} · {formatDateTime(tip.match.startTime)}
+          </p>
+          <p className="mt-0.5 truncate text-xs text-zinc-300">{tip.title}</p>
+        </div>
+
+        {tip.probability !== null && (
+          <span className="rounded bg-green-500/10 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-green-500">
+            {Math.round(tip.probability)}%
+          </span>
+        )}
+
+        <div className="flex items-center gap-1.5">
+          <Label htmlFor={`sug-odds-${tip.id}`} className="sr-only">
+            Odd
+          </Label>
+          <Input
+            id={`sug-odds-${tip.id}`}
+            type="number"
+            step="0.01"
+            min="1.01"
+            max="1000"
+            placeholder="Odd"
+            value={odds}
+            onChange={(e) => setOdds(e.target.value)}
+            className="h-8 w-24 tabular-nums"
+          />
+          <Button size="sm" onClick={publish} disabled={busy}>
+            {busy && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}
+            Publicar
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={discard}
+            disabled={busy}
+            className="text-zinc-500 hover:text-red-500"
+          >
+            Descartar
+          </Button>
+        </div>
+      </div>
+      {error && (
+        <p role="alert" className="mt-2 text-xs text-red-500">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
 

@@ -83,23 +83,28 @@ npm run seed       # dados mockados (idempotente) + primeiro admin
 
 ## 5. Integração das APIs esportivas
 
-Conforme `../analise-apis-esportivas-apostas.md` (seção 8). Três camadas, três orçamentos:
+Conforme `../analise-apis-esportivas-apostas.md` — **com uma correção importante descoberta
+na implementação (ago/2026): o plano grátis da API-Sports só libera temporadas 2022–2024,
+sem dados atuais.** Ela fica reservada para backtesting histórico futuro. O loop ao vivo é:
 
 | Camada | Fonte | Cota grátis | Uso |
 |---|---|---|---|
-| Calendário + stats + predictions | API-Sports (API-Football e irmãs) | 100 req/dia por esporte | Espinha dorsal: jogos, classificação, H2H, lesões, palpites |
-| Odds pré-jogo do dia | Odds-API.io | 100 req/hora | Motor diário de odds (só 2 casas — referência de mercado) |
-| Melhor preço em casas BR | OddsPapi | 250 req/mês | Uso cirúrgico: só jogos com dica publicada (Betano, EstrelaBet, Pixbet, KTO…) |
+| Calendário + placares + odds | **Odds-API.io** (espinha dorsal) | 100 req/hora | Eventos 14 dias, status, placar final, odds das 2 casas da conta (1xbet, 22Bet) |
+| Sugestões de dica | **Probabilidade implícita das odds** (1/odd normalizada pela margem) | — | Gera drafts com `probability` na fila do admin |
+| Melhor preço em casas BR | OddsPapi | 250 req/mês | Uso cirúrgico: só jogos com dica publicada (Betano, EstrelaBet, Pixbet, KTO…) — a implementar |
+| Backtesting histórico | API-Sports (temporadas 2022–2024) | 100 req/dia | Futuro, fora do loop ao vivo |
 
 Regras da integração:
 
-- **Cache é obrigatório.** Calendário e classificação: 1 coleta/dia, servidos do Postgres.
-  Chamadas vivas só para odds, que expiram.
-- **Coleta agendada via Cron Triggers** do Worker (nada de polling sob demanda do usuário).
-- **Cruzar fontes pelo jogo** (time + data; a OddsPapi expõe IDs externos — Sofascore,
-  Betradar — para ajudar no match).
-- Odds exibidas sempre com timestamp de atualização ("odds atualizadas às 14h") — os planos
-  grátis têm defasagem; nunca prometa tempo real.
+- **Coleta agendada via Cron Triggers** do Worker (fixtures+sugestões 2x/dia, apuração a cada 2h)
+  ou gatilho manual em `POST /admin/ingest` (botão no painel). Nada de polling sob demanda do usuário.
+- **Idempotência obrigatória**: matches por `externalId` (`oddsapiio:{id}`), sugestões por
+  jogo+mercado. Rodar 2x nunca duplica.
+- **Drafts nunca aparecem no site**: rotas públicas filtram `status = 'published'`.
+- **Apuração automática pelo placar** (`settledBy = 'auto'`); override do admin marca `'admin'`
+  e exige segunda confirmação com os dados do jogo no painel.
+- Odds exibidas sempre com timestamp de atualização — os planos grátis têm defasagem;
+  nunca prometa tempo real.
 - A Odds-API.io restringe o plano grátis a dev/teste/uso pessoal — risco contratual aceito
   e registrado; se o produto monetizar, essa camada migra primeiro.
 

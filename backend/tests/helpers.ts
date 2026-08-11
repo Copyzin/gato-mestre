@@ -14,6 +14,8 @@ export const testEnv = {
   DATABASE_URL: "pglite",
   JWT_SECRET: "segredo-de-teste-jwt",
   ENVIRONMENT: "test",
+  API_SPORTS_KEY: "chave-teste-apisports",
+  ODDS_API_IO_KEY: "chave-teste-odds",
 };
 
 export type TestApp = ReturnType<typeof buildApp>;

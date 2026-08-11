@@ -198,6 +198,8 @@ export default async function ResultadosPage({ searchParams }: Props) {
 }
 
 function ResultCard({ tip }: { tip: TipWithMatch }) {
+  const hasScore = tip.match.homeScore !== null && tip.match.awayScore !== null;
+
   return (
     <article className="border-2 border-ink bg-papel">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-ink px-4 py-2">
@@ -212,9 +214,17 @@ function ResultCard({ tip }: { tip: TipWithMatch }) {
         </time>
       </div>
       <div className="grid gap-4 p-4 sm:grid-cols-[minmax(220px,1fr)_minmax(190px,.8fr)_minmax(190px,.8fr)] sm:items-center">
-        <div>
-          <p className="text-base font-black">{tip.match.homeTeam}</p>
-          <p className="mt-1 text-base font-black">{tip.match.awayTeam}</p>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-base font-black">{tip.match.homeTeam}</p>
+            <p className="mt-1 text-base font-black">{tip.match.awayTeam}</p>
+          </div>
+          {hasScore && (
+            <div className="grid shrink-0 grid-cols-2 gap-1 border-2 border-ink bg-white p-2 font-mono text-xl font-black tabular-nums">
+              <span>{tip.match.homeScore}</span>
+              <span>{tip.match.awayScore}</span>
+            </div>
+          )}
         </div>
         <div className="border-l-0 border-cinza-3 sm:border-l-2 sm:pl-4">
           <p className="font-mono text-[9px] font-bold uppercase text-cinza-1">
@@ -222,16 +232,22 @@ function ResultCard({ tip }: { tip: TipWithMatch }) {
           </p>
           <p className="mt-1 text-sm font-bold">{tip.title}</p>
           <p className="mt-1 font-mono text-xs tabular-nums">
-            Odd {tip.odds.toFixed(2)}
+            Odd {tip.odds !== null ? tip.odds.toFixed(2) : "—"}
           </p>
         </div>
-        <ResultSeal result={tip.result} />
+        <ResultSeal result={tip.result} settledBy={tip.settledBy} />
       </div>
     </article>
   );
 }
 
-function ResultSeal({ result }: { result: TipWithMatch["result"] }) {
+function ResultSeal({
+  result,
+  settledBy,
+}: {
+  result: TipWithMatch["result"];
+  settledBy: TipWithMatch["settledBy"];
+}) {
   const config = {
     won: { bg: "bg-menta", label: "✓ Dica ganha" },
     lost: { bg: "bg-perdida", label: "× Dica perdida" },
@@ -241,7 +257,14 @@ function ResultSeal({ result }: { result: TipWithMatch["result"] }) {
 
   return (
     <div className={cn("border-2 border-ink px-3 py-3", config.bg)}>
-      <p className="font-mono text-[9px] font-black uppercase">Resultado</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="font-mono text-[9px] font-black uppercase">Resultado</p>
+        {settledBy === "auto" && (
+          <span className="font-mono text-[8px] font-bold uppercase text-cinza-1">
+            Auto
+          </span>
+        )}
+      </div>
       <p className="mt-1 text-base font-black">{config.label}</p>
     </div>
   );

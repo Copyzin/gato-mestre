@@ -21,20 +21,42 @@ export const matchSchema = z.object({
   awayTeam: z.string(),
   startTime: z.string(), // ISO 8601
   status: z.enum(["scheduled", "live", "finished"]),
+  homeScore: z.number().nullable(),
+  awayScore: z.number().nullable(),
 });
 
 export type Match = z.infer<typeof matchSchema>;
 
 // ─── Tips ────────────────────────────────────────────────────────────────────
 
+export const tipMarketSchema = z.enum([
+  "home_win",
+  "draw",
+  "away_win",
+  "over_25",
+  "under_25",
+  "btts_yes",
+  "btts_no",
+]);
+
+export type TipMarket = z.infer<typeof tipMarketSchema>;
+
 export const tipSchema = z.object({
   id: z.number(),
   matchId: z.number(),
   title: z.string(),
   description: z.string().nullable(),
-  odds: z.number(),
+  // Odd nullable: sugestões (draft) podem não ter odd até a revisão do admin
+  odds: z.number().nullable(),
   confidence: z.enum(["low", "medium", "high"]),
   result: z.enum(["pending", "won", "lost", "void"]),
+  // draft = sugestão automática aguardando revisão; published = no ar
+  status: z.enum(["draft", "published"]),
+  market: tipMarketSchema.nullable(),
+  // Probabilidade % calculada (ex.: /predictions), quando disponível
+  probability: z.number().nullable(),
+  // Quem apurou: sistema (pelo placar) ou admin (override)
+  settledBy: z.enum(["auto", "admin"]).nullable(),
   createdAt: z.string(), // ISO 8601
 });
 

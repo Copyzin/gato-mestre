@@ -24,8 +24,9 @@ type Props = {
 
 /**
  * Card de dica — layout do wireframe Figma Make (neo-brutalismo, tema claro):
- * liga, confronto, horário, caixa "dica clara" com odd e CTA.
- * Probabilidade % e badge "Dica paga" do wireframe não existem na API — omitidos.
+ * liga, confronto, horário, barra de probabilidade (quando a API envia
+ * `probability`) e caixa "dica clara" com odd e CTA.
+ * Badge "Dica paga" do wireframe não existe na API — omitido.
  */
 export function TipCard({ tip, index, betUrl }: Props) {
   const order = index !== undefined ? `#${String(index + 1).padStart(2, "0")}` : null;
@@ -55,6 +56,24 @@ export function TipCard({ tip, index, betUrl }: Props) {
           <p className="mt-1 font-mono text-[11px] font-bold">
             Hoje · {formatTime(tip.match.startTime)}
           </p>
+          {tip.probability !== null && (
+            <div className="mt-3 max-w-[220px]">
+              <div className="flex items-baseline justify-between">
+                <span className="font-mono text-[9px] font-bold uppercase text-cinza-1">
+                  Probabilidade
+                </span>
+                <span className="font-mono text-sm font-black tabular-nums">
+                  {Math.round(tip.probability)}%
+                </span>
+              </div>
+              <div className="mt-1 h-2 border border-ink bg-white">
+                <div
+                  className="h-full bg-menta"
+                  style={{ width: `${Math.min(100, Math.max(0, tip.probability))}%` }}
+                />
+              </div>
+            </div>
+          )}
           <div className="mt-2 xl:hidden">
             <ResultPill result={tip.result} />
           </div>
@@ -69,7 +88,7 @@ export function TipCard({ tip, index, betUrl }: Props) {
               <p className="mt-1 text-sm font-black">{tip.title}</p>
             </div>
             <span className="font-mono text-lg font-black tabular-nums">
-              {tip.odds.toFixed(2)}
+              {tip.odds !== null ? tip.odds.toFixed(2) : "—"}
             </span>
           </div>
           <div className="mt-3 flex items-center justify-between gap-3 border-t border-ink pt-2">

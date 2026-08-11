@@ -3,6 +3,7 @@ import { jwt } from "hono/jwt";
 import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { banners, matches, sports, tips } from "../db/schema";
+import { runIngestion, type IngestionTask } from "../ingestion";
 import type { Bindings, Variables } from "../types";
 
 // ─── Schemas de entrada ──────────────────────────────────────────────────────
@@ -20,9 +21,15 @@ const tipInput = z.object({
   matchId: z.number().int().positive(),
   title: z.string().min(1).max(200),
   description: z.string().max(1000).nullish(),
-  odds: z.number().positive().max(1000),
+  // Odd nullable enquanto a dica é rascunho; obrigatória para publicar
+  odds: z.number().positive().max(1000).nullish(),
   confidence: z.enum(["low", "medium", "high"]).optional(),
   result: z.enum(["pending", "won", "lost", "void"]).optional(),
+  status: z.enum(["draft", "published"]).optional(),
+  market: z
+    .enum(["home_win", "draw", "away_win", "over_25", "under_25", "btts_yes", "btts_no"])
+    .nullish(),
+  probability: z.number().int().min(0).max(100).nullish(),
 });
 
 const bannerInput = z.object({
@@ -31,6 +38,10 @@ const bannerInput = z.object({
   linkUrl: z.string().url().max(500).nullish(),
   position: z.enum(["hero", "sidebar", "footer"]).optional(),
   active: z.boolean().optional(),
+});
+
+const ingestInput = z.object({
+  task: z.enum(["all", "fixtures", "suggestions", "settle"]).optional(),
 });
 
 function badRequest(c: { json: (body: unknown, status: number) => Response }, issues: unknown) {
@@ -72,12 +83,19 @@ export const adminRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }
   })
 
   .get("/tips", async (c) => {
+    // Filtro opcional: ?status=draft (fila de sugestões) | published
+    const statusFilter = z
+      .enum(["draft", "published"])
+      .optional()
+      .parse(c.req.query("status") || undefined);
+
     const db = c.get("db");
     const rows = await db
       .select({ tip: tips, match: matches, sport: sports })
       .from(tips)
       .innerJoin(matches, eq(tips.matchId, matches.id))
       .innerJoin(sports, eq(matches.sportId, sports.id))
+      .where(statusFilter ? eq(tips.status, statusFilter) : undefined)
       .orderBy(desc(matches.startTime))
       .limit(200);
 
@@ -87,9 +105,13 @@ export const adminRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }
         matchId: tip.matchId,
         title: tip.title,
         description: tip.description,
-        odds: Number(tip.odds),
+        odds: tip.odds === null ? null : Number(tip.odds),
         confidence: tip.confidence,
         result: tip.result,
+        status: tip.status,
+        market: tip.market,
+        probability: tip.probability,
+        settledBy: tip.settledBy,
         createdAt: tip.createdAt.toISOString(),
         match: {
           id: match.id,
@@ -99,6 +121,8 @@ export const adminRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }
           awayTeam: match.awayTeam,
           startTime: match.startTime.toISOString(),
           status: match.status,
+          homeScore: match.homeScore,
+          awayScore: match.awayScore,
         },
         sport: { id: sport.id, name: sport.name, slug: sport.slug, icon: sport.icon },
       }))
@@ -150,16 +174,35 @@ export const adminRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }
     const parsed = tipInput.partial().safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) return badRequest(c, parsed.error.issues);
 
-    const { odds, ...rest } = parsed.data;
-    const values = { ...rest, ...(odds !== undefined ? { odds: String(odds) } : {}) };
-
     const db = c.get("db");
-    const [updated] = await db
-      .update(tips)
-      .set(values)
-      .where(eq(tips.id, Number(c.req.param("id"))))
-      .returning();
-    if (!updated) return c.json({ error: "Dica não encontrada." }, 404);
+    const tipId = Number(c.req.param("id"));
+    const [current] = await db.select().from(tips).where(eq(tips.id, tipId));
+    if (!current) return c.json({ error: "Dica não encontrada." }, 404);
+
+    // Publicar exige odd válida (a da dica ou a enviada neste PATCH)
+    if (parsed.data.status === "published" && current.status !== "published") {
+      const effectiveOdds =
+        parsed.data.odds !== undefined
+          ? parsed.data.odds
+          : current.odds === null
+            ? null
+            : Number(current.odds);
+      if (!effectiveOdds || effectiveOdds <= 1) {
+        return c.json({ error: "Defina uma odd válida antes de publicar a dica." }, 400);
+      }
+    }
+
+    const { odds, ...rest } = parsed.data;
+    const values = {
+      ...rest,
+      ...(odds !== undefined ? { odds: odds === null ? null : String(odds) } : {}),
+      // Resultado definido pelo painel é apuração/override do admin
+      ...(parsed.data.result && parsed.data.result !== "pending"
+        ? { settledBy: "admin" as const }
+        : {}),
+    };
+
+    const [updated] = await db.update(tips).set(values).where(eq(tips.id, tipId)).returning();
 
     // Resultado definido (green/red/void) ⇒ o jogo terminou: marca o match como
     // "finished" para a dica aparecer na tela pública de Resultados.
@@ -171,6 +214,31 @@ export const adminRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }
     }
 
     return c.json(updated);
+  })
+
+  // Gatilho manual da ingestão (fixtures / sugestões / apuração)
+  .post("/ingest", async (c) => {
+    const parsed = ingestInput.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) return badRequest(c, parsed.error.issues);
+
+    const task = parsed.data.task ?? "all";
+    const tasks: IngestionTask[] =
+      task === "all" ? ["fixtures", "suggestions", "settle"] : [task];
+
+    try {
+      const summary = await runIngestion(
+        c.get("db"),
+        { DATABASE_URL: "", ODDS_API_IO_KEY: c.env.ODDS_API_IO_KEY },
+        tasks,
+        c.get("fetchImpl")
+      );
+      return c.json({ ok: true, tasks, summary });
+    } catch (err) {
+      return c.json(
+        { error: err instanceof Error ? err.message : "Falha na ingestão." },
+        502
+      );
+    }
   })
 
   .delete("/tips/:id", async (c) => {

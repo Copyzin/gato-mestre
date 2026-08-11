@@ -155,9 +155,20 @@ entre com o `ADMIN_EMAIL`/`ADMIN_PASSWORD` do seed.
 - Rotas `/admin/*` da API exigem `Authorization: Bearer <token>`.
 - No painel: publicar dica, cadastrar jogo, marcar resultado (Green/Red/Void)
   e excluir dica (com confirmação).
+- **Fila de sugestões**: a ingestão automática gera dicas `draft` (mercado, odd
+  e probabilidade implícita das odds reais); o admin revisa, ajusta a odd e
+  publica — só dicas `published` aparecem no site.
+- **Botão "Atualizar dados"** (`POST /admin/ingest`): dispara a coleta manual
+  (fixtures + sugestões + apuração). Em produção, o Cron Trigger roda sozinho:
+  fixtures+sugestões 2x/dia (6h07/14h07 BRT), apuração a cada 2h.
 - Ao marcar Green/Red/Void, o jogo é automaticamente encerrado
   (`status = finished`) e a dica passa a aparecer na tela pública `/resultados`
-  (via `GET /tips/results`).
+  (via `GET /tips/results`). Jogos vindos da API são apurados sozinhos pelo
+  placar final (`settledBy = 'auto'`); correção manual do admin pede segunda
+  confirmação e grava `settledBy = 'admin'`.
+- **Nota:** a espinha dorsal dos dados é a Odds-API.io (calendário, placares,
+  odds). A API-Sports ficou de fora do loop ao vivo — o plano grátis dela só
+  libera temporadas 2022–2024 (sem dados atuais).
 
 Endpoints da API:
 

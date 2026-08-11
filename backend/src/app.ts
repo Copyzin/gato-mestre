@@ -5,6 +5,7 @@ import { and, desc, eq, gte, lt } from "drizzle-orm";
 import { z } from "zod";
 import { createDb, type Db } from "./db";
 import { banners, matches, sports, tips } from "./db/schema";
+import type { FetchImpl } from "./ingestion/odds-api-io";
 import authRoutes from "./routes/auth";
 import adminRoutes from "./routes/admin";
 import type { Bindings, Variables } from "./types";
@@ -16,6 +17,8 @@ type AppDeps = {
    * existe no contexto da execução.
    */
   db?: Db;
+  /** fetch injetável (testes stubam as APIs externas); padrão: fetch global */
+  fetchImpl?: FetchImpl;
 };
 
 export function buildApp(deps: AppDeps = {}) {
@@ -35,8 +38,10 @@ export function buildApp(deps: AppDeps = {}) {
     })
   );
 
-  // Middleware: valida o env e injeta a conexão com o banco
+  // Middleware: valida o env e injeta a conexão com o banco (+ fetch injetável)
   app.use("*", async (c, next) => {
+    c.set("fetchImpl", deps.fetchImpl ?? fetch);
+
     if (deps.db) {
       c.set("db", deps.db);
       await next();
@@ -110,7 +115,13 @@ export function buildApp(deps: AppDeps = {}) {
       .from(tips)
       .innerJoin(matches, eq(tips.matchId, matches.id))
       .innerJoin(sports, eq(matches.sportId, sports.id))
-      .where(and(gte(matches.startTime, startOfDay), lt(matches.startTime, endOfDay)))
+      .where(
+        and(
+          eq(tips.status, "published"), // sugestões (draft) nunca aparecem no site
+          gte(matches.startTime, startOfDay),
+          lt(matches.startTime, endOfDay)
+        )
+      )
       .orderBy(matches.startTime);
 
     // Normaliza para os tipos compartilhados (numeric → number, Date → ISO string)
@@ -119,9 +130,13 @@ export function buildApp(deps: AppDeps = {}) {
       matchId: tip.matchId,
       title: tip.title,
       description: tip.description,
-      odds: Number(tip.odds),
+      odds: tip.odds === null ? null : Number(tip.odds),
       confidence: tip.confidence,
       result: tip.result,
+      status: tip.status,
+      market: tip.market,
+      probability: tip.probability,
+      settledBy: tip.settledBy,
       createdAt: tip.createdAt.toISOString(),
       match: {
         id: match.id,
@@ -131,6 +146,8 @@ export function buildApp(deps: AppDeps = {}) {
         awayTeam: match.awayTeam,
         startTime: match.startTime.toISOString(),
         status: match.status,
+        homeScore: match.homeScore,
+        awayScore: match.awayScore,
       },
       sport: {
         id: sport.id,
@@ -152,7 +169,7 @@ export function buildApp(deps: AppDeps = {}) {
       .from(tips)
       .innerJoin(matches, eq(tips.matchId, matches.id))
       .innerJoin(sports, eq(matches.sportId, sports.id))
-      .where(eq(matches.status, "finished"))
+      .where(and(eq(tips.status, "published"), eq(matches.status, "finished")))
       .orderBy(desc(matches.startTime))
       .limit(100);
 
@@ -162,9 +179,13 @@ export function buildApp(deps: AppDeps = {}) {
       matchId: tip.matchId,
       title: tip.title,
       description: tip.description,
-      odds: Number(tip.odds),
+      odds: tip.odds === null ? null : Number(tip.odds),
       confidence: tip.confidence,
       result: tip.result,
+      status: tip.status,
+      market: tip.market,
+      probability: tip.probability,
+      settledBy: tip.settledBy,
       createdAt: tip.createdAt.toISOString(),
       match: {
         id: match.id,
@@ -174,6 +195,8 @@ export function buildApp(deps: AppDeps = {}) {
         awayTeam: match.awayTeam,
         startTime: match.startTime.toISOString(),
         status: match.status,
+        homeScore: match.homeScore,
+        awayScore: match.awayScore,
       },
       sport: {
         id: sport.id,
