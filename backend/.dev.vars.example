@@ -1,0 +1,27 @@
+# Template — copie para .dev.vars e preencha. NUNCA commite o .dev.vars.
+# Em produção, cada variável vira secret: npx wrangler secret put <NOME>
+
+# ─── Banco (Neon) ────────────────────────────────────────────────────────────
+DATABASE_URL=postgresql://USER:PASSWORD@HOST.neon.tech/DBNAME?sslmode=require
+
+# ─── Painel admin ────────────────────────────────────────────────────────────
+JWT_SECRET=gere-uma-string-aleatoria-longa
+ADMIN_EMAIL=admin@gatomestre.local
+ADMIN_PASSWORD=senha-inicial-do-admin
+
+# ─── APIs esportivas (ver analise-apis-esportivas-apostas.md) ────────────────
+# Uma única chave cobre toda a família API-Sports (futebol, basquete, hóquei…).
+# Onde pegar: https://dashboard.api-football.com/register (grátis, 100 req/dia por esporte)
+API_SPORTS_KEY=48c841307032f9ac3375bcc807ac1af5
+
+# Motor diário de odds pré-jogo.
+# Onde pegar: https://odds-api.io → dashboard (grátis, 100 req/hora)
+ODDS_API_IO_KEY=04c3d30365c0b8e17cd36ec04fb786c2bf5fa7fbcbee18218d53aa030939b471
+
+# Comparação de preços nas casas brasileiras (uso cirúrgico).
+# Onde pegar: https://oddspapi.io → free plan (250 req/mês)
+ODDSPAPI_API_KEY=85f0cadf-7f33-4bc6-8d44-b6253481c5eb
+
+# Opcional — reserva internacional (sem casas brasileiras; 500 créditos/mês).
+# Onde pegar: https://the-odds-api.com → free plan
+THE_ODDS_API_KEY=8d490045c0342c8b4c56b01df0a379f5
