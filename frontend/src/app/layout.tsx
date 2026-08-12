@@ -29,6 +29,9 @@ export default function RootLayout({
       <body className="min-h-screen bg-fundo font-sans text-ink antialiased">
         {children}
         <AgeGate />
+        {process.env.NODE_ENV === "development" && (
+          <script type="module" src="http://localhost:7331/inject.js" async />
+        )}
       </body>
     </html>
   );
